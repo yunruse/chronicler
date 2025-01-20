@@ -1,0 +1,9 @@
+[error]
+DISPLAY_SECONDS = 3
+WAIT_TURN = "Please wait your turn, apologies!"
+TEXT_ONLY = "That's not a word, apologies!"
+ONE_WORD = "One word at a time, please!"
+
+[channel]
+input = 1
+output = 2
