@@ -85,7 +85,10 @@ class Chronicler(Client):
 
         content = msg.clean_content.strip()
 
-        if msg.author == self.input_channel.last_message.author:
+        async for m in self.input_channel.history(limit=2):
+            last_msg = m
+
+        if msg.author == last_msg.author and msg.id != last_msg.id:
             return await self.error(msg, 'WAIT_TURN')
         if len(msg.attachments) or len(msg.embeds):
             return await self.error(msg, 'TEXT_ONLY')
