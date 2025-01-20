@@ -15,6 +15,10 @@ with open('config.toml') as f:
 CONFIG.setdefault('state', {})
 CONFIG['state'].setdefault('sentence_count', 0)
 CONFIG['state'].setdefault('last_message_dt', None)
+CONFIG.setdefault('subs', {})
+
+NON_TEXT = re.compile(r'^[^\w(\'"]')
+SENTENCE_END = re.compile(r'.*[.…!?]+$')
 
 class Chronicler(Client):
     input_channel: TextChannel
@@ -27,6 +31,10 @@ class Chronicler(Client):
         self.output_channel = self.get_channel(int(CONFIG['channel']['output']))
 
         print(f'\nMonitoring {self.input_channel} as {self.user}')
+    
+    async def save_config(self):
+        with open('config.toml', 'w') as f:
+            toml.dump(CONFIG, f)
     
     async def update_status(self):
         N = CONFIG['state']['sentence_count']
@@ -45,7 +53,7 @@ class Chronicler(Client):
         await sleep(CONFIG['error']['DISPLAY_SECONDS'])
         await reply.delete()
     
-    async def get_sentence(self):
+    async def assemble_sentence(self):
         words = []
         async for m in self.input_channel.history(limit=200):
             if (dtl := CONFIG['state']['last_message_dt']) and m.created_at <= dtl:
@@ -54,21 +62,17 @@ class Chronicler(Client):
                 continue
             if m.type != MessageType.default:
                 continue
-            words.append(m.clean_content)
+            words.append(CONFIG['subs'].pop(str(m.id), m.clean_content))
 
         async for m in self.input_channel.history(limit=1):
             timestamp = m.created_at
-        return ' '.join(words[::-1]), timestamp
 
-    async def assemble_sentence(self):
-        sentence, timestamp = await self.get_sentence()
-        print(sentence, timestamp)
-        await self.output_channel.send(sentence)
+        await self.output_channel.send(' '.join(words[::-1]))
 
         CONFIG['state']['last_message_dt'] = timestamp
         CONFIG['state']['sentence_count'] += 1
-        with open('config.toml', 'w') as f:
-            toml.dump(CONFIG, f)
+
+        await self.save_config()
 
         await self.update_status()
 
@@ -81,22 +85,56 @@ class Chronicler(Client):
 
         content = msg.clean_content.strip()
 
-        if msg.author == self.input_channel.last_message.author:
-            return await self.error(msg, 'WAIT_TURN')
+        # if msg.author == self.input_channel.last_message.author:
+        #     return await self.error(msg, 'WAIT_TURN')
         if len(msg.attachments) or len(msg.embeds):
             return await self.error(msg, 'TEXT_ONLY')
         if len(content.split()) > 1:
             return await self.error(msg, 'ONE_WORD')
-        
-        if re.match(r'^[^\w(\'"]', content):
+        if NON_TEXT.match(content):
             return await self.error(msg, 'TEXT_ONLY')
-        
+
         # TODO: word blocklist, maybe..?
 
-        print(content)
-        
-        if re.match(r'.*[.…!?]+$', content):
+        if SENTENCE_END.match(content):
             return await self.assemble_sentence()
+
+    async def on_message_edit(self, before: Message, after: Message):
+        """
+        Check message edits. This allows for:
+        - posting a sentence, if the final word suddenly gained a fullstop etc;
+        - keeping an old version of a word, iff it became malformed
+        - deleting the above kept substitution if the message is now fine
+        """
+        if before.author == self.user:
+            return
+        if before.channel != self.input_channel:
+            return
+
+        if (dtl := CONFIG['state']['last_message_dt']) and before.created_at <= dtl:
+            return
+        
+        became_malformed = False
+
+        is_most_recent = after.id == self.input_channel.last_message_id
+        was_end = bool(SENTENCE_END.match(before.clean_content))
+        now_end = bool(SENTENCE_END.match(after.clean_content))
+
+        if NON_TEXT.match(after.clean_content) or len(after.clean_content.split()) > 1:
+            became_malformed = True
+        elif is_most_recent:
+            if not was_end and now_end:
+                # Final message was changed to be the end..!
+                return await self.assemble_sentence()
+        elif now_end:
+            became_malformed = True
+        
+        if became_malformed:
+            CONFIG['subs'][str(before.id)] = before.clean_content
+            await self.save_config()
+        elif str(before.id) in CONFIG['subs']:
+            del CONFIG['subs'][str(before.id)]
+            await self.save_config()
 
 intents = Intents.default()
 intents.message_content = True
