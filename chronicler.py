@@ -2,7 +2,9 @@ from asyncio import sleep
 from pathlib import Path
 import re
 
-import discord
+from discord import Client, TextChannel, Message
+from discord import CustomActivity, MessageType, Intents
+
 import toml
 
 CLIENT_KEY = Path('discord.keys').read_text().strip()
@@ -14,9 +16,9 @@ CONFIG.setdefault('state', {})
 CONFIG['state'].setdefault('sentence_count', 0)
 CONFIG['state'].setdefault('last_message_dt', None)
 
-class Chronicler(discord.Client):
-    input_channel: discord.TextChannel
-    output_channel: discord.TextChannel
+class Chronicler(Client):
+    input_channel: TextChannel
+    output_channel: TextChannel
 
     async def on_ready(self):
         await self.update_status()
@@ -33,16 +35,9 @@ class Chronicler(discord.Client):
         else:
             status = 'Ready to chronicle!'
 
-        await self.change_presence(activity=discord.CustomActivity(name=status))
+        await self.change_presence(activity=CustomActivity(name=status))
 
-    
-    
-    async def error(
-            self,
-            msg: discord.Message,
-            key: str,
-            delete: bool = True,
-    ):
+    async def error(self, msg: Message, key: str, delete: bool = True):
         "The message was erroneous! Respond and delete."
         reply = await msg.reply(CONFIG['error'].get(key, 'Unknown error!'))
         if delete:
@@ -57,14 +52,14 @@ class Chronicler(discord.Client):
                 break
             if m.author == self.user:
                 continue
-            if m.type != discord.MessageType.default:
+            if m.type != MessageType.default:
                 continue
             words.append(m.clean_content)
 
         async for m in self.input_channel.history(limit=1):
             timestamp = m.created_at
         return ' '.join(words[::-1]), timestamp
-    
+
     async def assemble_sentence(self):
         sentence, timestamp = await self.get_sentence()
         print(sentence, timestamp)
@@ -78,7 +73,7 @@ class Chronicler(discord.Client):
         await self.update_status()
 
 
-    async def on_message(self, msg: discord.Message):
+    async def on_message(self, msg: Message):
         if msg.author == self.user:
             return
         if msg.channel != self.input_channel:
@@ -103,7 +98,7 @@ class Chronicler(discord.Client):
         if re.match(r'.*[.…!?]+$', content):
             return await self.assemble_sentence()
 
-intents = discord.Intents.default()
+intents = Intents.default()
 intents.message_content = True
 
 client = Chronicler(intents=intents)
