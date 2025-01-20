@@ -39,7 +39,8 @@ class Chronicler(Client):
     async def update_status(self):
         N = CONFIG['state']['sentence_count']
         if N > 0:
-            status = f'{N} sentences chronicled so far'
+            sentence = 'sentences' if N > 1 else 'sentence'
+            status = f'{N} {sentence} chronicled so far'
         else:
             status = 'Ready to chronicle!'
 
