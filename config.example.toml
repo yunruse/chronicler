@@ -1,5 +1,6 @@
 [error]
 DISPLAY_SECONDS = 3
+MAX_CHAR_LENGTH
 WAIT_TURN = "Please wait your turn, apologies!"
 TEXT_ONLY = "That's not a word, apologies!"
 ONE_WORD = "One word at a time, please!"

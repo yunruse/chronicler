@@ -20,6 +20,14 @@ CONFIG.setdefault('subs', {})
 NON_TEXT = re.compile(r'^[^\w(\'"]')
 SENTENCE_END = re.compile(r'.*[.…!?]+$')
 
+def is_multiple_words(string: str):
+    if len(string.split()) > 1:
+        return True
+    if '\u2800' in string:
+        # Braille pattern blank
+        return True
+    return False
+
 class Chronicler(Client):
     input_channel: TextChannel
     output_channel: TextChannel
@@ -31,7 +39,7 @@ class Chronicler(Client):
         self.output_channel = self.get_channel(int(CONFIG['channel']['output']))
 
         print(f'\nMonitoring {self.input_channel} as {self.user}')
-    
+
     async def save_config(self):
         with open('config.toml', 'w') as f:
             toml.dump(CONFIG, f)
@@ -87,13 +95,16 @@ class Chronicler(Client):
         content = msg.clean_content.strip()
 
         async for m in self.input_channel.history(limit=2):
+            # TODO: This doesn't account for if the user spams
             last_msg = m
 
         if msg.author == last_msg.author and msg.id != last_msg.id:
             return await self.error(msg, 'WAIT_TURN')
         if len(msg.attachments) or len(msg.embeds):
             return await self.error(msg, 'TEXT_ONLY')
-        if len(content.split()) > 1:
+        if is_multiple_words(content):
+            return await self.error(msg, 'ONE_WORD')
+        if len(content) > CONFIG['error']['MAX_CHAR_LENGTH']:
             return await self.error(msg, 'ONE_WORD')
         if NON_TEXT.match(content):
             return await self.error(msg, 'TEXT_ONLY')
@@ -124,7 +135,13 @@ class Chronicler(Client):
         was_end = bool(SENTENCE_END.match(before.clean_content))
         now_end = bool(SENTENCE_END.match(after.clean_content))
 
-        if NON_TEXT.match(after.clean_content) or len(after.clean_content.split()) > 1:
+        def malformed(x: str):
+            return (
+                len(x) > CONFIG['error']['MAX_CHAR_LENGTH'] or 
+                NON_TEXT.match(after.clean_content) or
+                is_multiple_words(after.clean_content))
+
+        if malformed(after.clean_content):
             became_malformed = True
         elif is_most_recent:
             if not was_end and now_end:
