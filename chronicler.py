@@ -12,7 +12,7 @@ with open('config.toml') as f:
 
 CONFIG.setdefault('state', {})
 CONFIG['state'].setdefault('sentence_count', 0)
-CONFIG['state'].setdefault('last_message_id', None)
+CONFIG['state'].setdefault('last_message_dt', None)
 
 class Chronicler(discord.Client):
     input_channel: discord.TextChannel
@@ -53,7 +53,7 @@ class Chronicler(discord.Client):
     async def get_sentence(self):
         words = []
         async for m in self.input_channel.history(limit=200):
-            if m.id == CONFIG['state']['last_message_id']:
+            if (dtl := CONFIG['state']['last_message_dt']) and m.created_at <= dtl:
                 break
             if m.author == self.user:
                 continue
@@ -62,15 +62,15 @@ class Chronicler(discord.Client):
             words.append(m.clean_content)
 
         async for m in self.input_channel.history(limit=1):
-            m_id = m.id
-        return ' '.join(words[::-1]), m_id
+            timestamp = m.created_at
+        return ' '.join(words[::-1]), timestamp
     
     async def assemble_sentence(self):
-        sentence, final_id = await self.get_sentence()
-        print(sentence, final_id)
+        sentence, timestamp = await self.get_sentence()
+        print(sentence, timestamp)
         await self.output_channel.send(sentence)
 
-        CONFIG['state']['last_message_id'] = final_id
+        CONFIG['state']['last_message_dt'] = timestamp
         CONFIG['state']['sentence_count'] += 1
         with open('config.toml', 'w') as f:
             toml.dump(CONFIG, f)
