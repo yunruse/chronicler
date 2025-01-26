@@ -1,6 +1,7 @@
 [error]
 DISPLAY_SECONDS = 3
-MAX_CHAR_LENGTH
+MAX_CHAR_LENGTH = 24
+EMOJI_OKAY = false
 WAIT_TURN = "Please wait your turn, apologies!"
 TEXT_ONLY = "That's not a word, apologies!"
 ONE_WORD = "One word at a time, please!"

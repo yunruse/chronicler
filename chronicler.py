@@ -6,6 +6,7 @@ from discord import Client, TextChannel, Message
 from discord import CustomActivity, MessageType, Intents
 
 import toml
+import emoji
 
 CLIENT_KEY = Path('discord.keys').read_text().strip()
 
@@ -19,6 +20,10 @@ CONFIG.setdefault('subs', {})
 
 NON_TEXT = re.compile(r'^[^\w(\'"]')
 SENTENCE_END = re.compile(r'.*[.…!?]+$')
+
+def has_emoji(string: str):
+    DISCORD_EMOJI = re.compile(r'<a?:[a-z0-9_]+?:\d+>')
+    return any(emoji.analyze(string)) or any(DISCORD_EMOJI.findall(string))
 
 def is_multiple_words(string: str):
     if len(string.split()) > 1:
@@ -104,6 +109,8 @@ class Chronicler(Client):
             return await self.error(msg, 'TEXT_ONLY')
         if is_multiple_words(content):
             return await self.error(msg, 'ONE_WORD')
+        if has_emoji(content):
+            return await self.error(msg, 'TEXT_ONLY')
         if len(content) > CONFIG['error']['MAX_CHAR_LENGTH']:
             return await self.error(msg, 'ONE_WORD')
         if NON_TEXT.match(content):

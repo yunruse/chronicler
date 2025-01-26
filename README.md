@@ -2,6 +2,12 @@
 
 This is a tiny Discord bot intended to chronicle one-word-story channels.
 
+Requires a reasonably modern version of Python and
+
+```sh
+pip install discordpy emoji toml
+```
+
 # Setup
 1. Create a channel for users to type a word in, and a channel for the bot to assemble sentences in. They may be the same channel if you wish. I personally have a thread inside the channel where the bot posts.
 
