@@ -2,7 +2,7 @@
 
 This is a tiny Discord bot intended to chronicle one-word-story channels.
 
-Requires a reasonably modern version of Python and
+Requires Python 3.9 and:
 
 ```sh
 pip install discordpy emoji toml
