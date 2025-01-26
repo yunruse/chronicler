@@ -105,12 +105,10 @@ class Chronicler(Client):
 
         if msg.author == last_msg.author and msg.id != last_msg.id:
             return await self.error(msg, 'WAIT_TURN')
-        if len(msg.attachments) or len(msg.embeds):
+        if msg.attachments or msg.embeds or msg.stickers or has_emoji(content):
             return await self.error(msg, 'TEXT_ONLY')
         if is_multiple_words(content):
             return await self.error(msg, 'ONE_WORD')
-        if has_emoji(content):
-            return await self.error(msg, 'TEXT_ONLY')
         if len(content) > CONFIG['error']['MAX_CHAR_LENGTH']:
             return await self.error(msg, 'ONE_WORD')
         if NON_TEXT.match(content):
