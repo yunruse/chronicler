@@ -94,6 +94,8 @@ class Chronicler(Client):
     async def on_message(self, msg: Message):
         if msg.author == self.user:
             return
+        if msg.author.bot:
+            return
         if msg.channel != self.input_channel:
             return
 
