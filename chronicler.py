@@ -66,17 +66,23 @@ class Chronicler(Client):
             await msg.delete()
         await sleep(CONFIG['error']['DISPLAY_SECONDS'])
         await reply.delete()
-    
-    async def assemble_sentence(self):
+
+    async def assemble_sentence(self, sentence_end_id: int):
+        sentence_end_seen = False
         words = []
         async for m in self.input_channel.history(limit=200):
             if (dtl := CONFIG['state']['last_message_dt']) and m.created_at <= dtl:
                 break
-            if m.author == self.user:
+            if m.author.bot:
                 continue
             if m.type != MessageType.default:
                 continue
+            if m.id == sentence_end_id:
+                sentence_end_seen = True
             words.append(CONFIG['subs'].pop(str(m.id), m.clean_content))
+        
+        if not sentence_end_seen:
+            return
 
         async for m in self.input_channel.history(limit=1):
             timestamp = m.created_at
@@ -92,8 +98,6 @@ class Chronicler(Client):
 
 
     async def on_message(self, msg: Message):
-        if msg.author == self.user:
-            return
         if msg.author.bot:
             return
         if msg.channel != self.input_channel:
@@ -119,7 +123,7 @@ class Chronicler(Client):
         # TODO: word blocklist, maybe..?
 
         if SENTENCE_END.match(content):
-            return await self.assemble_sentence()
+            return await self.assemble_sentence(msg.id)
 
     async def on_message_edit(self, before: Message, after: Message):
         """
