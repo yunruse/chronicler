@@ -8,6 +8,12 @@ from discord import CustomActivity, MessageType, Intents
 import toml
 import emoji
 
+FP_BLOCKED_WORDS = Path('banned_words.txt')
+if FP_BLOCKED_WORDS.is_file():
+    BLOCKED_WORDS = set(FP_BLOCKED_WORDS.read_text().strip().split())
+else:
+    BLOCKED_WORDS = set()
+
 CLIENT_KEY = Path('discord.keys').read_text().strip()
 
 with open('config.toml') as f:
@@ -19,7 +25,7 @@ CONFIG['state'].setdefault('last_message_dt', None)
 CONFIG.setdefault('subs', {})
 
 NON_TEXT = re.compile(r'^[^\w(\'"]')
-SENTENCE_END = re.compile(r'.*[.…!?]+$')
+SENTENCE_END = re.compile(r'(.*)[.…!?]+$')
 
 def has_emoji(string: str):
     DISCORD_EMOJI = re.compile(r'<a?:[a-zA-Z0-9_]+?:\d+>')
@@ -81,6 +87,10 @@ class Chronicler(Client):
                 sentence_end_seen = True
 
             content = m.clean_content.strip()
+            print(content, SENTENCE_END.sub('\\1', content.lower()), SENTENCE_END.sub('', content.lower()) in BLOCKED_WORDS)
+            if SENTENCE_END.sub('', content.lower()) in BLOCKED_WORDS:
+                print('content blocked', content)
+                continue
             if len(words):
                 if SENTENCE_END.match(content) or is_multiple_words(content):
                     # Timestamp is a bit outdated somehow!
@@ -115,6 +125,9 @@ class Chronicler(Client):
             # TODO: This doesn't account for if the user spams
             last_msg = m
 
+        if SENTENCE_END.sub('\\1', content.lower()) in BLOCKED_WORDS:
+            return
+
         if msg.author == last_msg.author and msg.id != last_msg.id:
             return await self.error(msg, 'WAIT_TURN')
         if msg.attachments or msg.embeds or msg.stickers or has_emoji(content):
@@ -125,8 +138,6 @@ class Chronicler(Client):
             return await self.error(msg, 'ONE_WORD')
         if NON_TEXT.match(content):
             return await self.error(msg, 'TEXT_ONLY')
-
-        # TODO: word blocklist, maybe..?
 
         if SENTENCE_END.match(content):
             return await self.assemble_sentence(msg.id)
