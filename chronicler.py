@@ -79,7 +79,13 @@ class Chronicler(Client):
                 continue
             if m.id == sentence_end_id:
                 sentence_end_seen = True
-            words.append(CONFIG['subs'].pop(str(m.id), m.clean_content))
+
+            content = m.clean_content.strip()
+            if len(words):
+                if SENTENCE_END.match(content) or is_multiple_words(content):
+                    # Timestamp is a bit outdated somehow!
+                    break
+            words.append(CONFIG['subs'].pop(str(m.id), content))
         
         if not sentence_end_seen:
             return
