@@ -10,7 +10,7 @@ import emoji
 
 FP_BLOCKED_WORDS = Path('banned_words.txt')
 if FP_BLOCKED_WORDS.is_file():
-    BLOCKED_WORDS = set(FP_BLOCKED_WORDS.read_text().strip().split())
+    BLOCKED_WORDS = set(FP_BLOCKED_WORDS.read_text().strip().splitlines())
 else:
     BLOCKED_WORDS = set()
 
@@ -38,6 +38,12 @@ def is_multiple_words(string: str):
         # Braille pattern blank
         return True
     return False
+
+def is_blocked(word: str):
+    # remove punctuation; set lowercase
+    word_p = SENTENCE_END.sub('\\1', word.lower())
+    print('Scanning:', word_p, word_p in BLOCKED_WORDS)
+    return word_p in BLOCKED_WORDS
 
 class Chronicler(Client):
     input_channel: TextChannel
@@ -87,9 +93,7 @@ class Chronicler(Client):
                 sentence_end_seen = True
 
             content = m.clean_content.strip()
-            print(content, SENTENCE_END.sub('\\1', content.lower()), SENTENCE_END.sub('', content.lower()) in BLOCKED_WORDS)
-            if SENTENCE_END.sub('', content.lower()) in BLOCKED_WORDS:
-                print('content blocked', content)
+            if is_blocked(content):
                 continue
             if len(words):
                 if SENTENCE_END.match(content) or is_multiple_words(content):
@@ -125,7 +129,7 @@ class Chronicler(Client):
             # TODO: This doesn't account for if the user spams
             last_msg = m
 
-        if SENTENCE_END.sub('\\1', content.lower()) in BLOCKED_WORDS:
+        if is_blocked(content):
             return
 
         if msg.author == last_msg.author and msg.id != last_msg.id:
@@ -185,8 +189,9 @@ class Chronicler(Client):
             del CONFIG['subs'][str(before.id)]
             await self.save_config()
 
-intents = Intents.default()
-intents.message_content = True
+if __name__ == '__main__':
+    intents = Intents.default()
+    intents.message_content = True
 
-client = Chronicler(intents=intents)
-client.run(CLIENT_KEY)
+    client = Chronicler(intents=intents)
+    client.run(CLIENT_KEY)
